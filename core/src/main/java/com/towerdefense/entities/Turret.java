@@ -2,6 +2,8 @@ package com.towerdefense.entities;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.Pool;
+import com.badlogic.gdx.utils.Pools;
 import com.towerdefense.enums.TargetSystem;
 import com.towerdefense.enums.TurretState;
 import com.towerdefense.mediators.Renderable;
@@ -24,6 +26,7 @@ public class Turret implements Renderable {
     private double turretBaseDamage;
     // times per second
     private double attackRate;
+    private Pool<Projectile> projectilePool;
 
 
     public Turret(String name, Level level, TargetSystem targetSystem, double radius, double range, double baseDamage, double attackRate) {
@@ -36,6 +39,12 @@ public class Turret implements Renderable {
         this.turretBaseDamage = baseDamage;
         this.attackRate = attackRate;
         this.turretState = TurretState.Searching;
+        this.projectilePool = new Pool<Projectile>() {
+            @Override
+            protected Projectile newObject() {
+                return new Projectile(Turret.this);
+            }
+        };
     }
 
 
@@ -70,6 +79,8 @@ public class Turret implements Renderable {
     private void performAttack() {
         if (isInRange(target)) {
             target.health -= turretBaseDamage;
+            Projectile projectile = projectilePool.obtain();
+            projectile.fly(target);
         }
     }
 

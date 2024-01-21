@@ -24,4 +24,9 @@ public class Minion implements Target, Renderable {
     public void render(Renderer renderer) {
 
     }
+
+    @Override
+    public Vector2 getPosition() {
+        return position;
+    }
 }
