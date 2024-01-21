@@ -5,7 +5,7 @@ import com.badlogic.gdx.utils.Pool;
 import com.towerdefense.mediators.Renderable;
 import com.towerdefense.renderer.Renderer;
 
-public class Projectile implements Renderable , Pool.Poolable {
+public class Projectile implements Renderable, Pool.Poolable {
 
     private Turret turret;
     private double size = 1;
@@ -15,7 +15,7 @@ public class Projectile implements Renderable , Pool.Poolable {
     private Vector2 direction;
     private Vector2 destination;
 
-    public Projectile (Turret turret) {
+    public Projectile(Turret turret) {
         this.turret = turret;
         direction = new Vector2();
         destination = new Vector2();
