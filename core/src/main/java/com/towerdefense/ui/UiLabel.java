@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector4;
+import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack;
 import com.badlogic.gdx.utils.Align;
 import com.towerdefense.renderer.Renderer;
 
@@ -122,11 +123,11 @@ public class UiLabel extends Element {
                 .fillRectangle(position.x, position.y, size.x, size.y, 0, 0, 0, false, scale.x, scale.y)
                 .setColor(outline)
                 .rectangle(position.x, position.y, size.x, size.y, 0, 0, 0, false, scale.x, scale.y, 0.25)
-                .setColor(textColor);
+                .setColor(textColor)
 
-        if (renderText) renderer
-            // there is a bit of an issue , repositioning the text and text alignment have to be different ,because it messes up the position anyway
-            .text(text, textPosition.x, textPosition.y, 0, text.length(), textLayout.getValue(), wrap, layout.width, truncate ? truncation : null, fontScale.x, fontScale.y);
+
+                // there is a bit of an issue , repositioning the text and text alignment have to be different ,because it messes up the position anyway
+                .text(text, textPosition.x, textPosition.y, 0, text.length(), textLayout.getValue(), wrap, layout.width, truncate ? truncation : null, fontScale.x, fontScale.y);
 
     }
 }

@@ -24,7 +24,7 @@ public class TowerDefense extends Program {
     public void create() {
         // camera and renderer
         camera = new OrthographicCamera();
-        fitViewport = new FitViewport(720, 480);
+        fitViewport = new FitViewport(1920, 1080);
         fitViewport.setCamera(camera);
         renderer = new Renderer();
 
@@ -44,9 +44,9 @@ public class TowerDefense extends Program {
                 super.render(renderer);
             }
         };
-        label.setSize(220, 50);
-        label.setFontScale(0.06);
-        label.setTextLayout(TextLayout.Left);
+        label.setSize(820, 150);
+        label.setFontScale(0.5);
+        label.setTextLayout(TextLayout.Center);
         label.setTextAlignment(TextAlignment.Center);
         ui.addElement(label);
 

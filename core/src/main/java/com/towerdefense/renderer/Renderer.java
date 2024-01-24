@@ -59,7 +59,6 @@ public class Renderer implements Disposable {
         fontTexture.setFilter(Texture.TextureFilter.MipMapLinearNearest, Texture.TextureFilter.Linear); // linear filtering in nearest mipmap image
         font = new BitmapFont(Gdx.files.internal("verdana.fnt"), new TextureRegion(fontTexture), false);
         font.setUseIntegerPositions(false);
-        System.out.println(font.getCapHeight());
     }
 
 
@@ -734,8 +733,8 @@ public class Renderer implements Disposable {
             uniform sampler2D u_texture;
             varying vec4 v_color;
             varying vec2 v_texCoords;
-            uniform float u_smoothing = 25;
-            uniform float u_weight = 0.01;
+            uniform float u_smoothing = 35;
+            uniform float u_weight = 0.005;
 
             float median(float r, float g, float b) {
                 return max(min(r, g), min(max(r, g), b));
