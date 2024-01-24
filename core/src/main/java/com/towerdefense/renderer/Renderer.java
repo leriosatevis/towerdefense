@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Disposable;
@@ -24,10 +25,15 @@ public class Renderer implements Disposable {
     private BitmapFont font;
     private FreeTypeFontGenerator fontGenerator;
     private FreeTypeFontGenerator.FreeTypeFontParameter fontParameter;
+    private Texture fontTexture;
+    private ShaderProgram shader;
+    private ShaderProgram fontShader;
 
 
     public Renderer() {
-        batch = new SpriteBatch(8191);
+        shader = defaultShader();
+        fontShader = defaultFontShader();
+        batch = new SpriteBatch(8191, shader);
         // create a white pixel texture
         final Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
@@ -36,19 +42,24 @@ public class Renderer implements Disposable {
         whitePixel = new TextureRegion(pixelTexture);
         pixmap.dispose();
         // set default font
-        fontGenerator = new FreeTypeFontGenerator(new FileHandle("C:/windows/fonts/consola.ttf"));
-        fontParameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
-        fontParameter.size = 100;
-        fontParameter.renderCount = 2;
-        fontParameter.gamma = 1.5f;
-        fontParameter.color = color;
-        fontParameter.magFilter = Texture.TextureFilter.Nearest;
-        fontParameter.minFilter = Texture.TextureFilter.Linear;
-        fontParameter.hinting = FreeTypeFontGenerator.Hinting.AutoMedium;
-        fontParameter.kerning = true;
-        font = fontGenerator.generateFont(fontParameter);
+//        fontGenerator = new FreeTypeFontGenerator(new FileHandle("C:/windows/fonts/segoeui.ttf"));
+//        fontParameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+//        fontParameter.size = 100;
+//        fontParameter.renderCount = 2;
+//        fontParameter.gamma = 1.5f;
+//        fontParameter.color = color;
+//        fontParameter.magFilter = Texture.TextureFilter.Nearest;
+//        fontParameter.minFilter = Texture.TextureFilter.Linear;
+//        fontParameter.hinting = FreeTypeFontGenerator.Hinting.AutoMedium;
+//        fontParameter.kerning = true;
+//        font = fontGenerator.generateFont(fontParameter);
+//        font.setUseIntegerPositions(false);
+//        fontGenerator.dispose();
+        fontTexture = new Texture(Gdx.files.internal("verdana.png"), true); // true enables mipmaps
+        fontTexture.setFilter(Texture.TextureFilter.MipMapLinearNearest, Texture.TextureFilter.Linear); // linear filtering in nearest mipmap image
+        font = new BitmapFont(Gdx.files.internal("verdana.fnt"), new TextureRegion(fontTexture), false);
         font.setUseIntegerPositions(false);
-        fontGenerator.dispose();
+        System.out.println(font.getCapHeight());
     }
 
 
@@ -562,11 +573,16 @@ public class Renderer implements Disposable {
     // draw fonts
     GlyphLayout layout = new GlyphLayout();
 
-    public Renderer text(String text, double x, double y, int start, int end, int alignment, boolean wrap, double wrapWidth, String truncate , double scaleX, double scaleY) {
-        if (scaleX < 0.1 || scaleY < 0.1) throw new IllegalStateException("Font scale must equal to or above 0.1 !");
+    public Renderer text(String text, double x, double y, int start, int end, int alignment, boolean wrap, double wrapWidth, String truncate, double scaleX, double scaleY) {
+        final double minScale = 0.05;
+        if (scaleX < minScale || scaleY < minScale)
+            throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
+        final ShaderProgram oldShader = batch.getShader();
+        batch.setShader(fontShader);
         font.getData().setScale((float) scaleX, (float) scaleY);
         layout.setText(font, text);
         font.draw(batch, text, (float) x, (float) y, start, end, (float) wrapWidth, alignment, wrap, truncate);
+        batch.setShader(oldShader);
         return this;
     }
 
@@ -631,7 +647,109 @@ public class Renderer implements Disposable {
     @Override
     public void dispose() {
         batch.dispose();
+        shader.dispose();
+        fontShader.dispose();
         pixelTexture.dispose();
         font.dispose();
+    }
+
+
+    private ShaderProgram defaultShader() {
+        String vertexShader = """
+            attribute vec4 a_position;
+            attribute vec4 a_color;
+            attribute vec2 a_texCoord0;
+            uniform mat4 u_projTrans;
+            varying vec4 v_color;
+            varying vec2 v_texCoords;
+
+            void main()
+            {
+               v_color = a_color;
+               v_color.a = v_color.a * (255.0/254.0);
+               v_texCoords = a_texCoord0;
+               gl_Position =  u_projTrans * a_position;
+            }
+            """;
+        String fragmentShader = """
+            #ifdef GL_ES
+            #define LOWP lowp
+            precision mediump float;
+            #else
+            #define LOWP
+            #endif
+            varying LOWP vec4 v_color;
+            varying vec2 v_texCoords;
+            uniform sampler2D u_texture;
+            void main()
+            {
+              gl_FragColor = v_color * texture2D(u_texture, v_texCoords);
+            }
+            """;
+        return new ShaderProgram(vertexShader, fragmentShader);
+    }
+
+    private ShaderProgram defaultFontShader() {
+        String vertex = """
+            attribute vec4 a_position;
+            attribute vec4 a_color;
+            attribute vec2 a_texCoord0;
+            uniform mat4 u_projTrans;
+            varying vec4 v_color;
+            varying vec2 v_texCoords;
+
+            void main()
+            {
+               v_color = a_color;
+               v_color.a = v_color.a * (255.0/254.0);
+               v_texCoords = a_texCoord0;
+               gl_Position =  u_projTrans * a_position;
+            }
+            """;
+        String fragment = """
+            #ifdef GL_ES
+            precision mediump float;
+            #endif
+
+            uniform sampler2D u_texture;
+
+            varying vec4 v_color;
+            varying vec2 v_texCoord;
+
+            const float smoothing = 1.0/20.0;
+
+            void main() {
+                float distance = texture2D(u_texture, v_texCoord).a;
+                float alpha = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);
+                gl_FragColor = vec4(v_color.rgb, v_color.a * alpha);
+            }
+
+            """;
+        String msdfFragmentShader = """
+            #version 120
+            #ifdef GL_ES
+            precision mediump float;
+            #endif
+
+            uniform sampler2D u_texture;
+            varying vec4 v_color;
+            varying vec2 v_texCoords;
+            uniform float u_smoothing = 25;
+            uniform float u_weight = 0.01;
+
+            float median(float r, float g, float b) {
+                return max(min(r, g), min(max(r, g), b));
+            }
+            float linearstep(float a, float b, float x) {
+                return clamp((x - a) / (b - a), 0.0, 1.0);
+            }
+            void main() {
+                vec4 msdf = texture2D(u_texture, v_texCoords);
+                float distance = u_smoothing * (median(msdf.r, msdf.g, msdf.b) + u_weight - 0.5);
+                float glyphAlpha = clamp(distance + 0.5, 0.0, 1.0);
+                gl_FragColor = vec4(v_color.rgb, glyphAlpha * v_color.a);
+            }
+            """;
+        return new ShaderProgram(vertex, msdfFragmentShader);
     }
 }

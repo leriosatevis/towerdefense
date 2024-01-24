@@ -4,14 +4,12 @@ package com.towerdefense.ui;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.towerdefense.input.InputHandler;
-import com.towerdefense.mediators.Renderable;
 import com.towerdefense.renderer.Renderer;
 
 
-public class UserInterface implements Renderable {
+public class UserInterface {
 
     private Array<Element> elements;
     private InputHandler input;
@@ -73,7 +71,11 @@ public class UserInterface implements Renderable {
         input.addToMultiplexer(multiplexer);
     }
 
-    @Override
+
+    public void logic(double delta) {
+        elements.forEach(element -> element.logic(delta));
+    }
+
     public void render(Renderer renderer) {
         elements.forEach(element -> element.render(renderer));
     }
