@@ -9,6 +9,7 @@ public class Element {
     Vector2 size;
     Vector2 scale;
     boolean visible;
+    UserInterface userInterface;
 
     public Element() {
         position = new Vector2();
@@ -46,6 +47,11 @@ public class Element {
         scale.set((float) scaleX, (float) scaleY);
     }
 
+    public Element setUserInterface(UserInterface userInterface) {
+        this.userInterface = userInterface;
+        return this;
+    }
+
     public Vector2 getPosition() {
         return position;
     }
@@ -58,6 +64,10 @@ public class Element {
         return scale;
     }
 
+
+    public UserInterface getUserInterface() {
+        return userInterface;
+    }
 
     public Element setVisible(boolean visible) {
         this.visible = visible;

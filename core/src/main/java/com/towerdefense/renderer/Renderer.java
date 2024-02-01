@@ -2,16 +2,17 @@ package com.towerdefense.renderer;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Pixmap;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
-import com.badlogic.gdx.utils.Align;
-import com.badlogic.gdx.utils.Disposable;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.*;
+import com.towerdefense.ui.UiLabel;
+
+import java.awt.*;
 
 public class Renderer implements Disposable {
 
@@ -42,23 +43,24 @@ public class Renderer implements Disposable {
         whitePixel = new TextureRegion(pixelTexture);
         pixmap.dispose();
         // set default font
-//        fontGenerator = new FreeTypeFontGenerator(new FileHandle("C:/windows/fonts/segoeui.ttf"));
-//        fontParameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
-//        fontParameter.size = 100;
-//        fontParameter.renderCount = 2;
-//        fontParameter.gamma = 1.5f;
-//        fontParameter.color = color;
-//        fontParameter.magFilter = Texture.TextureFilter.Nearest;
-//        fontParameter.minFilter = Texture.TextureFilter.Linear;
-//        fontParameter.hinting = FreeTypeFontGenerator.Hinting.AutoMedium;
-//        fontParameter.kerning = true;
-//        font = fontGenerator.generateFont(fontParameter);
-//        font.setUseIntegerPositions(false);
-//        fontGenerator.dispose();
+        fontGenerator = new FreeTypeFontGenerator(new FileHandle("C:/windows/fonts/segoeui.ttf"));
+        fontParameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+        fontParameter.size = 100;
+        fontParameter.renderCount = 2;
+        fontParameter.gamma = 1.5f;
+        fontParameter.color = color;
+        fontParameter.magFilter = Texture.TextureFilter.Nearest;
+        fontParameter.minFilter = Texture.TextureFilter.Linear;
+        fontParameter.hinting = FreeTypeFontGenerator.Hinting.AutoMedium;
+        fontParameter.kerning = true;
+        fontParameter.flip = false;
+        font = fontGenerator.generateFont(fontParameter);
+        font.setUseIntegerPositions(false);
+        fontGenerator.dispose();
         fontTexture = new Texture(Gdx.files.internal("verdana.png"), true); // true enables mipmaps
         fontTexture.setFilter(Texture.TextureFilter.MipMapLinearNearest, Texture.TextureFilter.Linear); // linear filtering in nearest mipmap image
-        font = new BitmapFont(Gdx.files.internal("verdana.fnt"), new TextureRegion(fontTexture), false);
-        font.setUseIntegerPositions(false);
+        //  font = new BitmapFont(Gdx.files.internal("verdana.fnt"), new TextureRegion(fontTexture), false);
+        //  font.setUseIntegerPositions(false);
     }
 
 
@@ -570,20 +572,82 @@ public class Renderer implements Disposable {
     }
 
     // draw fonts
-    GlyphLayout layout = new GlyphLayout();
 
-    public Renderer text(String text, double x, double y, int start, int end, int alignment, boolean wrap, double wrapWidth, String truncate, double scaleX, double scaleY) {
+    final GlyphLayout layout = new GlyphLayout();
+
+
+    public Renderer text(String text, Vector2 position, Color color, int alignment, boolean wrap, double wrapWidth, String truncate, double scaleX, double scaleY, boolean drawBounds, double boundsLineThickness) {
+        final double minScale = 0.05;
+        if (scaleX < minScale || scaleY < minScale)
+            throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
+        font.getData().setScale((float) scaleX, (float) scaleY);
+        layout.setText(font, text, 0, text.length(), color, wrapWidth == -1 ? layout.width : (float) wrapWidth, alignment, wrap, truncate);
+        font.draw(batch, layout, position.x, position.y);
+
+        if (drawBounds)
+            for (GlyphLayout.GlyphRun run : layout.runs) {
+                double glyphX = position.x + run.x;
+                final double baseline = position.y + run.y;
+                for (int i = 0; i < run.glyphs.size; i++) {
+                    final BitmapFont.Glyph glyph = run.glyphs.get(i);
+                    final double glyphY = baseline + ((glyph.height + glyph.yoffset) * scaleY);
+                    glyphX += run.xAdvances.get(i);
+                    if ((char) glyph.id != ' ')
+                        setColor(Color.GREEN).rectangle(glyphX + glyph.xoffset * scaleX, glyphY + font.getAscent(), glyph.width, -glyph.height, 0, 0, 0, false, scaleX, scaleY, boundsLineThickness);
+                }
+            }
+        return this;
+    }
+
+    public Renderer text(String text, double x, double y, Color color, int alignment, boolean wrap, double wrapWidth, String truncate, double scaleX, double scaleY, boolean drawBounds, double boundsLineThickness) {
+        final double minScale = 0.05;
+        if (scaleX < minScale || scaleY < minScale)
+            throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
+        font.getData().setScale((float) scaleX, (float) scaleY);
+        layout.setText(font, text, 0, text.length(), color, wrapWidth == -1 ? layout.width : (float) wrapWidth, alignment, wrap, truncate);
+        font.draw(batch, layout, (float) x, (float) y);
+
+        if (drawBounds)
+            for (GlyphLayout.GlyphRun run : layout.runs) {
+                double glyphX = x + run.x;
+                final double baseline = y + run.y;
+                for (int i = 0; i < run.glyphs.size; i++) {
+                    final BitmapFont.Glyph glyph = run.glyphs.get(i);
+                    final double glyphY = baseline + ((glyph.height + glyph.yoffset) * scaleY);
+                    glyphX += run.xAdvances.get(i);
+                    if ((char) glyph.id != ' ')
+                        setColor(Color.GREEN).rectangle(glyphX + glyph.xoffset * scaleX, glyphY + font.getAscent(), glyph.width, -glyph.height, 0, 0, 0, false, scaleX, scaleY, boundsLineThickness);
+                }
+            }
+        return this;
+    }
+
+
+    public Renderer text(GlyphLayout layout, double x, double y, double scaleX, double scaleY) {
         final double minScale = 0.05;
         if (scaleX < minScale || scaleY < minScale)
             throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
         final ShaderProgram oldShader = batch.getShader();
         batch.setShader(fontShader);
         font.getData().setScale((float) scaleX, (float) scaleY);
-        layout.setText(font, text);
-        font.draw(batch, text, (float) x, (float) y, start, end, (float) wrapWidth, alignment, wrap, truncate);
+        font.draw(batch, layout, (float) x, (float) y);
         batch.setShader(oldShader);
         return this;
     }
+
+    public Renderer text(GlyphLayout layout, double x, double y, double scale) {
+        final double minScale = 0.05;
+        if (scale < minScale)
+            throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
+        final ShaderProgram oldShader = batch.getShader();
+        font.getCache().clear();
+        batch.setShader(fontShader);
+        font.getData().setScale((float) scale, (float) scale);
+        font.draw(batch, layout, (float) x, (float) y);
+        batch.setShader(oldShader);
+        return this;
+    }
+
 
     // core method for shapes
     private Renderer drawArray(float[] vertices) {
@@ -627,6 +691,7 @@ public class Renderer implements Disposable {
 
     public Renderer setProjectionMatrix(Matrix4 projectionMatrix) {
         this.projectionMatrix = projectionMatrix;
+        batch.setProjectionMatrix(projectionMatrix);
         return this;
     }
 
@@ -733,8 +798,8 @@ public class Renderer implements Disposable {
             uniform sampler2D u_texture;
             varying vec4 v_color;
             varying vec2 v_texCoords;
-            uniform float u_smoothing = 35;
-            uniform float u_weight = 0.005;
+            uniform float u_smoothing = 200;
+            uniform float u_weight = 0.01;
 
             float median(float r, float g, float b) {
                 return max(min(r, g), min(max(r, g), b));
@@ -751,4 +816,6 @@ public class Renderer implements Disposable {
             """;
         return new ShaderProgram(vertex, msdfFragmentShader);
     }
+
+
 }
