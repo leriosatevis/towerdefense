@@ -43,24 +43,24 @@ public class Renderer implements Disposable {
         whitePixel = new TextureRegion(pixelTexture);
         pixmap.dispose();
         // set default font
-        fontGenerator = new FreeTypeFontGenerator(new FileHandle("C:/windows/fonts/segoeui.ttf"));
-        fontParameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
-        fontParameter.size = 100;
-        fontParameter.renderCount = 2;
-        fontParameter.gamma = 1.5f;
-        fontParameter.color = color;
-        fontParameter.magFilter = Texture.TextureFilter.Nearest;
-        fontParameter.minFilter = Texture.TextureFilter.Linear;
-        fontParameter.hinting = FreeTypeFontGenerator.Hinting.AutoMedium;
-        fontParameter.kerning = true;
-        fontParameter.flip = false;
-        font = fontGenerator.generateFont(fontParameter);
-        font.setUseIntegerPositions(false);
-        fontGenerator.dispose();
+//        fontGenerator = new FreeTypeFontGenerator(new FileHandle("C:/windows/fonts/segoeui.ttf"));
+//        fontParameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+//        fontParameter.size = 100;
+//        fontParameter.renderCount = 2;
+//        fontParameter.gamma = 1.5f;
+//        fontParameter.color = color;
+//        fontParameter.magFilter = Texture.TextureFilter.Nearest;
+//        fontParameter.minFilter = Texture.TextureFilter.Linear;
+//        fontParameter.hinting = FreeTypeFontGenerator.Hinting.AutoMedium;
+//        fontParameter.kerning = true;
+//        fontParameter.flip = false;
+//        font = fontGenerator.generateFont(fontParameter);
+//        font.setUseIntegerPositions(false);
+//        fontGenerator.dispose();
         fontTexture = new Texture(Gdx.files.internal("verdana.png"), true); // true enables mipmaps
         fontTexture.setFilter(Texture.TextureFilter.MipMapLinearNearest, Texture.TextureFilter.Linear); // linear filtering in nearest mipmap image
-        //  font = new BitmapFont(Gdx.files.internal("verdana.fnt"), new TextureRegion(fontTexture), false);
-        //  font.setUseIntegerPositions(false);
+        font = new BitmapFont(Gdx.files.internal("verdana.fnt"), new TextureRegion(fontTexture), false);
+        font.setUseIntegerPositions(false);
     }
 
 
@@ -573,29 +573,27 @@ public class Renderer implements Disposable {
 
     // draw fonts
 
-    final GlyphLayout layout = new GlyphLayout();
+    GlyphLayout layout = new GlyphLayout();
 
 
     public Renderer text(String text, Vector2 position, Color color, int alignment, boolean wrap, double wrapWidth, String truncate, double scaleX, double scaleY, boolean drawBounds, double boundsLineThickness) {
         final double minScale = 0.05;
         if (scaleX < minScale || scaleY < minScale)
             throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
-        font.getData().setScale((float) scaleX, (float) scaleY);
-        layout.setText(font, text, 0, text.length(), color, wrapWidth == -1 ? layout.width : (float) wrapWidth, alignment, wrap, truncate);
-        font.draw(batch, layout, position.x, position.y);
 
+        final ShaderProgram oldShader = batch.getShader();
+        batch.setShader(fontShader);
+
+        font.getData().setScale((float) scaleX, (float) scaleY);
+        layout.setText(font, text, 0, text.length(), color, (float) wrapWidth, alignment, wrap, truncate);
+        //font.getCache().addText(layout , position.x , position.y);
+        // font.getCache().draw(batch);
+
+
+        batch.setShader(oldShader);
         if (drawBounds)
-            for (GlyphLayout.GlyphRun run : layout.runs) {
-                double glyphX = position.x + run.x;
-                final double baseline = position.y + run.y;
-                for (int i = 0; i < run.glyphs.size; i++) {
-                    final BitmapFont.Glyph glyph = run.glyphs.get(i);
-                    final double glyphY = baseline + ((glyph.height + glyph.yoffset) * scaleY);
-                    glyphX += run.xAdvances.get(i);
-                    if ((char) glyph.id != ' ')
-                        setColor(Color.GREEN).rectangle(glyphX + glyph.xoffset * scaleX, glyphY + font.getAscent(), glyph.width, -glyph.height, 0, 0, 0, false, scaleX, scaleY, boundsLineThickness);
-                }
-            }
+            drawGlyphPositions(layout, position, scaleX, scaleY, boundsLineThickness);
+        layout.reset();
         return this;
     }
 
@@ -603,22 +601,48 @@ public class Renderer implements Disposable {
         final double minScale = 0.05;
         if (scaleX < minScale || scaleY < minScale)
             throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
+        final ShaderProgram oldShader = batch.getShader();
+        batch.setShader(fontShader);
         font.getData().setScale((float) scaleX, (float) scaleY);
         layout.setText(font, text, 0, text.length(), color, wrapWidth == -1 ? layout.width : (float) wrapWidth, alignment, wrap, truncate);
         font.draw(batch, layout, (float) x, (float) y);
+        batch.setShader(oldShader);
+        if (drawBounds) drawGlyphPositions(layout, x, y, scaleX, scaleY, boundsLineThickness);
+        return this;
+    }
 
-        if (drawBounds)
-            for (GlyphLayout.GlyphRun run : layout.runs) {
-                double glyphX = x + run.x;
-                final double baseline = y + run.y;
-                for (int i = 0; i < run.glyphs.size; i++) {
-                    final BitmapFont.Glyph glyph = run.glyphs.get(i);
-                    final double glyphY = baseline + ((glyph.height + glyph.yoffset) * scaleY);
-                    glyphX += run.xAdvances.get(i);
-                    if ((char) glyph.id != ' ')
-                        setColor(Color.GREEN).rectangle(glyphX + glyph.xoffset * scaleX, glyphY + font.getAscent(), glyph.width, -glyph.height, 0, 0, 0, false, scaleX, scaleY, boundsLineThickness);
-                }
+    public Renderer text(GlyphLayout layout, Vector2 position) {
+        font.draw(batch, layout, position.x, position.y);
+        return this;
+    }
+
+    public Renderer drawGlyphPositions(GlyphLayout layout, double x, double y, double scaleX, double scaleY, double boundsLineThickness) {
+        for (GlyphLayout.GlyphRun run : layout.runs) {
+            double glyphX = x + run.x;
+            final double baseline = y + run.y;
+            for (int i = 0; i < run.glyphs.size; i++) {
+                final BitmapFont.Glyph glyph = run.glyphs.get(i);
+                final double glyphY = baseline + ((glyph.height + glyph.yoffset) * scaleY);
+                glyphX += run.xAdvances.get(i);
+                if ((char) glyph.id != ' ')
+                    setColor(Color.GREEN).rectangle(glyphX + glyph.xoffset * scaleX, glyphY + font.getAscent(), glyph.width, -glyph.height, 0, 0, 0, false, scaleX, scaleY, boundsLineThickness);
             }
+        }
+        return this;
+    }
+
+    public Renderer drawGlyphPositions(GlyphLayout layout, Vector2 position, double scaleX, double scaleY, double boundsLineThickness) {
+        for (GlyphLayout.GlyphRun run : layout.runs) {
+            double glyphX = position.x + run.x;
+            final double baseline = position.y + run.y;
+            for (int i = 0; i < run.glyphs.size; i++) {
+                final BitmapFont.Glyph glyph = run.glyphs.get(i);
+                final double glyphY = baseline + ((glyph.height + glyph.yoffset) * scaleY);
+                glyphX += run.xAdvances.get(i);
+                if ((char) glyph.id != ' ')
+                    setColor(Color.GREEN).rectangle(glyphX + glyph.xoffset * scaleX, glyphY + font.getAscent(), glyph.width, -glyph.height, 0, 0, 0, false, scaleX, scaleY, boundsLineThickness);
+            }
+        }
         return this;
     }
 
@@ -630,19 +654,6 @@ public class Renderer implements Disposable {
         final ShaderProgram oldShader = batch.getShader();
         batch.setShader(fontShader);
         font.getData().setScale((float) scaleX, (float) scaleY);
-        font.draw(batch, layout, (float) x, (float) y);
-        batch.setShader(oldShader);
-        return this;
-    }
-
-    public Renderer text(GlyphLayout layout, double x, double y, double scale) {
-        final double minScale = 0.05;
-        if (scale < minScale)
-            throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
-        final ShaderProgram oldShader = batch.getShader();
-        font.getCache().clear();
-        batch.setShader(fontShader);
-        font.getData().setScale((float) scale, (float) scale);
         font.draw(batch, layout, (float) x, (float) y);
         batch.setShader(oldShader);
         return this;
@@ -704,8 +715,26 @@ public class Renderer implements Disposable {
         return this;
     }
 
+    public GlyphLayout getLayout() {
+        return layout;
+    }
+
+    public GlyphLayout setLayout(GlyphLayout layout) {
+        this.layout = layout;
+        return this.layout;
+    }
+
     public BitmapFont getFont() {
         return font;
+    }
+
+    public ShaderProgram getFontShader() {
+        return fontShader;
+    }
+
+    public Renderer setShader(ShaderProgram shader) {
+        batch.setShader(shader);
+        return this;
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.towerdefense.ui;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Vector2;
 import com.towerdefense.renderer.Renderer;
 
@@ -12,12 +13,11 @@ public class UiLabel extends Element {
     private Color textColor;
     private Color background;
     private Color outline;
-    private GlyphLayout layout;
     private Vector2 fontScale, textPosition;
-    private boolean wrap, truncate, renderText , drawGlyphBounds;
+    private boolean wrap, truncate, renderText, drawGlyphBounds;
     private String truncation = "...";
     private BitmapFont font;
-    private TextLayout textLayout;
+    private TextLayout style;
     private TextAlignment textAlignment;
     private Margin margin;
     private float glyphBoundLineThickness = 1.0f;
@@ -30,10 +30,9 @@ public class UiLabel extends Element {
         textColor = new Color(Color.WHITE);
         background = new Color(Color.valueOf("000000AA"));
         outline = new Color(Color.GRAY);
-        layout = new GlyphLayout();
         fontScale = new Vector2(1, 1);
         margin = new Margin(1, 1, 1, 1);
-        textLayout = TextLayout.Left;
+        style = TextLayout.Left;
         textAlignment = TextAlignment.BottomLeft;
         textPosition = new Vector2();
     }
@@ -77,8 +76,8 @@ public class UiLabel extends Element {
         return this;
     }
 
-    public UiLabel setTextLayout(TextLayout textLayout) {
-        this.textLayout = textLayout;
+    public UiLabel setStyle(TextLayout style) {
+        this.style = style;
         return this;
     }
 
@@ -89,7 +88,7 @@ public class UiLabel extends Element {
 
     }
 
-    private Vector2 computeTextOffset() {
+    private Vector2 computeTextPosition(GlyphLayout layout) {
         return switch (textAlignment) {
             case TopLeft ->
                 textPosition.set((float) (position.x + margin.left), (float) (position.y + size.y - margin.top));
@@ -115,34 +114,45 @@ public class UiLabel extends Element {
 
     @Override
     public void render(Renderer renderer) {
-        if (isVisible())
-            renderer
-                .setColor(background)
-                .fillRectangle(position.x, position.y, size.x, size.y, 0, 0, 0, false, scale.x, scale.y)
-                .setColor(outline)
-                .rectangle(position.x, position.y, size.x, size.y, 0, 0, 0, false, scale.x, scale.y, 0.25)
-                .setColor(textColor);
+        final GlyphLayout layout = renderer.getLayout();
+        final ShaderProgram oldShader = renderer.batch().getShader();
+        // draw fill
+        if (isVisible()) {
+            renderer.setColor(background).fillRectangle(position.x, position.y, size.x, size.y, 0, 0, 0, false, scale.x, scale.y);
 
-        final double minScale = 0.05;
-        if (fontScale.x < minScale || fontScale.y < minScale)
-            throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
-        font.getData().setScale(fontScale.x, fontScale.y);
-        layout.setText(font, text, 0, text.length(), textColor, layout.width, textLayout.getValue(), wrap, null);
-        computeTextOffset();
-        font.draw(renderer.batch(), layout, textPosition.x, textPosition.y);
+            final double minScale = 0.01;
+            if (fontScale.x < minScale || fontScale.y < minScale)
+                throw new IllegalStateException("Font scale must equal to or above " + String.valueOf(minScale) + " !");
+            font.getData().setScale(fontScale.x, fontScale.y);
 
-        if (drawGlyphBounds)
-            for (GlyphLayout.GlyphRun run : layout.runs) {
-                double glyphX = textPosition.x + run.x;
-                final double baseline = textPosition.y + run.y;
-                for (int i = 0; i < run.glyphs.size; i++) {
-                    final BitmapFont.Glyph glyph = run.glyphs.get(i);
-                    final double glyphY = baseline + ((glyph.height + glyph.yoffset) * fontScale.y);
-                    glyphX += run.xAdvances.get(i);
-                    if ((char) glyph.id != ' ')
-                       renderer.setColor(glyphBoundLineColor).rectangle(glyphX + glyph.xoffset * fontScale.x, glyphY + font.getAscent(), glyph.width, -glyph.height, 0, 0, 0, false, fontScale.x, fontScale.y, glyphBoundLineThickness);
-                }
+            float usableWidth = (float) (size.x - (margin.left + margin.right));
+
+
+            layout.setText(font, text, 0, text.length(), textColor, usableWidth, style.getValue(), wrap, wrap ? null : truncation);
+
+            if (layout.height > size.y + margin.top + margin.top) {
+                renderText = false;
+                System.err.println("Can't fit text in label bounds.");
+            } else {
+                renderText = true;
             }
+
+            computeTextPosition(layout);
+
+            if (renderText)
+                renderer.setShader(renderer.getFontShader())
+                    // draw the text
+                    .setColor(textColor)
+                    .text(layout, textPosition)
+                    // switch back to old shader
+                    .setShader(oldShader);
+            // draw the glyph bounds
+            if (drawGlyphBounds) renderer
+                .drawGlyphPositions(layout, textPosition, fontScale.x, fontScale.y, glyphBoundLineThickness);
+            // draw outline
+            renderer.setColor(outline)
+                .rectangle(position.x, position.y, size.x, size.y, 0, 0, 0, false, scale.x, scale.y, 0.25);
+        }
     }
 
     public UiLabel setDrawGlyphBounds(boolean drawGlyphBounds) {
@@ -157,6 +167,11 @@ public class UiLabel extends Element {
 
     public UiLabel setGlyphBoundLineThickness(float glyphBoundLineThickness) {
         this.glyphBoundLineThickness = glyphBoundLineThickness;
+        return this;
+    }
+
+    public UiLabel setWrap(boolean wrap) {
+        this.wrap = wrap;
         return this;
     }
 }
